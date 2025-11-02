@@ -6,7 +6,7 @@ const Project = require("../models/Project");
 const User = require("../models/User");
 
 // Create a new project (only authenticated users => Admin)
-router.post('/', auth, async (req, res) => {
+router.post('/create', auth, async (req, res) => {
     try {
         const { name, description } = req.body;
         const project = new Project({
@@ -26,19 +26,20 @@ router.post('/', auth, async (req, res) => {
 // Add a member to a project (only Admins)
 router.post('/:id/add-member', auth, projectRoleCheck("admin"), async (req, res) => {
     try {
-        const { userId } = req.body;
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ message: 'Email is required' });
+
+        const user = await User.findOne({ email });
+        if(!user) return res.status(404).json({ message: 'User not found' });
+
         const project = req.project;
 
         // Check if user is already a member
-        if(project.members.some(m => m.user.toString() === userId)) {
+        if(project.members.some(m => m.user.toString() === user._id.toString())) {
             return res.status(400).json({ message: 'User is already a member' });
         }
 
-        // Check if user exists
-        const user = await User.findById(userId);
-        if(!user) return res.status(404).json({ message: 'User not found' });
-
-        project.members.push({ user: userId, role: "member" });
+        project.members.push({ user: user._id, role: "member" });
         await project.save();
         res.json({ message: 'Member added successfully', project})
     } catch (error) {
